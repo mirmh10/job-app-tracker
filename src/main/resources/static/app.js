@@ -1,7 +1,6 @@
 "use strict";
 
-const STORAGE_KEY = "job-application-tracker:v1";
-const STATUSES = ["Applied", "Interview", "Rejected", "Offer"];
+const API_URL = "/api/applications";
 const form = document.querySelector("#application-form");
 const fields = {
   company: document.querySelector("#company"),
@@ -18,31 +17,34 @@ const emptyState = document.querySelector("#empty-state");
 const formTitle = document.querySelector("#form-title");
 const submitButton = document.querySelector("#submit-button");
 const cancelButton = document.querySelector("#cancel-button");
+const feedback = document.querySelector("#feedback");
 
-let applications = loadApplications();
+let applications = [];
 let editingId = null;
 
-function loadApplications() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (!Array.isArray(saved)) return [];
-    return saved.filter((item) =>
-      item && Number.isSafeInteger(item.id) && item.id > 0 &&
-      typeof item.company === "string" && typeof item.role === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(item.dateApplied) &&
-      STATUSES.includes(item.status) && typeof item.url === "string" &&
-      typeof item.notes === "string"
-    );
-  } catch {
-    return [];
-  }
+function showError(message) {
+  feedback.textContent = message;
+  feedback.hidden = false;
 }
 
-function saveApplications() {
+function clearError() {
+  feedback.textContent = "";
+  feedback.hidden = true;
+}
+
+async function request(url, options) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.status === 204 ? null : response.json();
+}
+
+async function refreshApplications() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(applications));
+    applications = await request(API_URL);
+    clearError();
+    render();
   } catch {
-    // The current tab remains usable if storage is disabled or full.
+    showError("Could not load applications. Check that the Java server is running.");
   }
 }
 
@@ -146,16 +148,19 @@ function startEdit(id) {
   fields.company.focus({ preventScroll: true });
 }
 
-function deleteApplication(id) {
+async function deleteApplication(id) {
   const item = applications.find((application) => application.id === id);
   if (!item || !window.confirm(`Delete the application for ${item.company}?`)) return;
-  applications = applications.filter((application) => application.id !== id);
-  if (editingId === id) resetForm();
-  saveApplications();
-  render();
+  try {
+    await request(`${API_URL}/${id}`, { method: "DELETE" });
+    if (editingId === id) resetForm();
+    await refreshApplications();
+  } catch {
+    showError("Could not delete this application. Please try again.");
+  }
 }
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!form.reportValidity()) return;
 
@@ -179,16 +184,20 @@ form.addEventListener("submit", (event) => {
     }
   }
 
-  if (editingId !== null) {
-    const index = applications.findIndex((item) => item.id === editingId);
-    if (index !== -1) applications[index] = { id: editingId, ...values };
-  } else {
-    const id = Math.max(0, ...applications.map((item) => item.id)) + 1;
-    applications.push({ id, ...values });
+  submitButton.disabled = true;
+  try {
+    await request(editingId === null ? API_URL : `${API_URL}/${editingId}`, {
+      method: editingId === null ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    resetForm();
+    await refreshApplications();
+  } catch {
+    showError("Could not save this application. Check the fields and try again.");
+  } finally {
+    submitButton.disabled = false;
   }
-  saveApplications();
-  resetForm();
-  render();
 });
 
 for (const field of Object.values(fields)) {
@@ -197,4 +206,4 @@ for (const field of Object.values(fields)) {
 }
 cancelButton.addEventListener("click", resetForm);
 filter.addEventListener("change", render);
-render();
+refreshApplications();

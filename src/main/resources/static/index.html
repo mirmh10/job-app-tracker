@@ -48,6 +48,7 @@
       .button-secondary:hover { background: #e2eaf5; }
       .button-danger { color: #b33445; background: #fff2f3; }
       .button-danger:hover { background: #ffe5e8; }
+      #feedback { margin: 0 0 18px; border-radius: 10px; padding: 12px 14px; color: #9d263b; background: #fff0f2; }
       .list-card { margin-top: 24px; overflow: hidden; }
       .list-top { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 26px 28px 20px; }
       .list-top .field { width: min(210px, 100%); }
@@ -92,7 +93,7 @@
       <header>
         <p class="eyebrow">Your job search, organized</p>
         <h1>Application tracker</h1>
-        <p class="intro">Keep every opportunity, follow-up, and next step in one place.</p>
+        <p class="intro">Keep every opportunity, follow-up, and next step in one place. Saved in your local SQL database.</p>
       </header>
 
       <section class="card form-card" aria-labelledby="form-title">
@@ -102,6 +103,7 @@
             <p class="section-help">Fields marked * are required.</p>
           </div>
         </div>
+        <p id="feedback" role="alert" hidden></p>
         <form id="application-form">
           <div class="form-grid">
             <div class="field">
